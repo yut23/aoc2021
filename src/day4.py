@@ -12,19 +12,18 @@ class Bingo:
             boards.append([l.split() for l in lines[i : i + 5]])
         self.boards: npt.NDArray[int] = np.array(boards, dtype=int)
         self.marked: npt.NDArray[bool] = np.zeros_like(self.boards, dtype=bool)
-        self.won: npt.NDArray[bool] = np.zeros(self.boards.shape[0], dtype=bool)
 
     def mark(self, number: int) -> List[int]:
         """Returns the scores of all winning boards."""
-        self.marked[~self.won] |= self.boards[~self.won] == number
-        new_wins: npt.NDArray[bool] = ~self.won & (
-            self.marked.prod(axis=1).any(axis=-1)
-            | self.marked.prod(axis=2).any(axis=-1)
-        )
-        if new_wins.any():
-            self.won[new_wins] = True
-            mask = ~self.marked[new_wins]
-            scores = self.boards[new_wins].sum(axis=(1, 2), where=mask) * number
+        self.marked |= self.boards == number
+        wins: npt.NDArray[bool] = self.marked.prod(axis=1).any(
+            axis=-1
+        ) | self.marked.prod(axis=2).any(axis=-1)
+        if wins.any():
+            mask = ~self.marked[wins]
+            scores = self.boards[wins].sum(axis=(1, 2), where=mask) * number
+            self.boards = self.boards[~wins]
+            self.marked = self.marked[~wins]
             return list(scores)
         return []
 
@@ -42,6 +41,6 @@ def part_2(lines: List[str]) -> int:
     bingo = Bingo(lines)
     for num in bingo.order:
         new_wins = bingo.mark(num)
-        if bingo.won.all():
+        if bingo.boards.shape[0] == 0:
             return new_wins[0]
     return -1
