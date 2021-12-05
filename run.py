@@ -15,6 +15,12 @@ sys.path.insert(0, str(ROOT / "src"))
 
 def main() -> None:
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-a",
+        "--all",
+        action="store_true",
+        help="run all days",
+    )
     input_group = parser.add_mutually_exclusive_group()
     input_group.add_argument(
         "-e",
@@ -39,11 +45,10 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if args.day:
-        if args.day[0] == "all":
-            days = list(range(1, TODAY + 1))
-        else:
-            days = [int(x) for x in args.day]
+    if args.all:
+        days = list(range(1, TODAY + 1))
+    elif args.day:
+        days = [int(x) for x in args.day]
     else:
         days = [TODAY]
 
