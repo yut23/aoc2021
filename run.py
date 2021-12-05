@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).parent.resolve()
-TODAY = datetime.datetime.now().day
+TODAY = min(datetime.datetime.now(), datetime.datetime(2021, 12, 25)).day
 
 # add the source directory to the beginning of Python's search path
 sys.path.insert(0, str(ROOT / "src"))
