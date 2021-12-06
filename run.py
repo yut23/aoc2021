@@ -4,12 +4,11 @@ import argparse
 import datetime
 import importlib
 import math
+import statistics
 import sys
 import timeit
 from pathlib import Path
 from typing import Any, Dict, Optional
-
-import numpy as np
 
 ROOT = Path(__file__).parent.resolve()
 TODAY = min(datetime.datetime.now(), datetime.datetime(2021, 12, 25)).day
@@ -128,12 +127,12 @@ def get_timing(
 ) -> None:
     timer = timeit.Timer(stmt, setup, globals=globals)
     num_loops, total_time = timer.autorange()
-    times = (
-        np.array([total_time, *timer.repeat(repeat=repeat - 1, number=num_loops)])
-        / num_loops
-    )
+    times = [
+        t / num_loops
+        for t in [total_time, *timer.repeat(repeat=repeat - 1, number=num_loops)]
+    ]
     print(
-        f"{_format_time(times.mean())} ± {_format_time(times.std())} per loop"
+        f"{_format_time(statistics.mean(times))} ± {_format_time(statistics.stdev(times))} per loop"
         f" (mean ± std. dev. of {repeat} loops, {num_loops} loops each)\n"
     )
 
