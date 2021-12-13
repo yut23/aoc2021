@@ -44,10 +44,10 @@ def apply_fold(dots: Set[Dot], fold: Fold) -> Set[Dot]:
     return new_dots
 
 
-def pretty(dots: Set[Dot], fold: Optional[Fold] = None) -> str:
+def pretty(dots: Set[Dot], fold: Optional[Fold] = None, bg_char: str = ".") -> str:
     width = max(dot.x for dot in dots) + 1
     height = max(dot.y for dot in dots) + 1
-    lines = [["."] * width for _ in range(height)]
+    lines = [[bg_char] * width for _ in range(height)]
     for dot in dots:
         lines[dot.y][dot.x] = "#"
     if fold is not None:
@@ -67,3 +67,10 @@ def part_1(lines: List[str]) -> int:
     # print(",\n".join(map(str, sorted(dots))))
     # print("\n" + pretty(dots, folds[1]) + "\n")
     return len(dots)
+
+
+def part_2(lines: List[str]) -> str:
+    dots, folds = parse(lines)
+    for fold in folds:
+        dots = apply_fold(dots, fold)
+    return "\n" + pretty(dots, bg_char=" ")
