@@ -64,3 +64,12 @@ def dijkstra(cave: npt.NDArray[int]) -> int:
 def part_1(lines: List[str]) -> int:
     cave = parse(lines)
     return dijkstra(cave)
+
+
+def part_2(lines: List[str]) -> int:
+    cave = parse(lines)
+    shifts = np.arange(5)[:, np.newaxis] + np.arange(5)
+    # np.kron makes a block matrix out of the inputs
+    cave = np.tile(cave, shifts.shape) + np.kron(shifts, np.ones_like(cave))  # type: ignore
+    cave = (cave - 1) % 9 + 1  # type: ignore
+    return dijkstra(cave)
