@@ -1,3 +1,5 @@
+import functools
+import operator
 from dataclasses import dataclass
 from typing import List
 
@@ -64,15 +66,34 @@ class Packet:
     version: int
     type_id: int
 
+    def get_value(self) -> int:
+        return -1
+
 
 @dataclass
 class LiteralPacket(Packet):
     value: int
 
+    def get_value(self) -> int:
+        return self.value
+
 
 @dataclass
 class OperatorPacket(Packet):
     subpackets: List["Packet"]
+
+    def get_value(self) -> int:
+        op = {
+            0: sum,
+            1: lambda vals: functools.reduce(operator.mul, vals),
+            2: min,
+            3: max,
+            5: lambda vals: operator.gt(*vals),
+            6: lambda vals: operator.lt(*vals),
+            7: lambda vals: operator.eq(*vals),
+        }[self.type_id]
+        subvalues = (p.get_value() for p in self.subpackets)
+        return int(op(subvalues))  # type: ignore
 
 
 def read_packet(s: Stream) -> Packet:
@@ -111,3 +132,9 @@ def part_1(lines: List[str]) -> int:
     stream = Stream(lines[0])
     packet = read_packet(stream)
     return add_versions(packet)
+
+
+def part_2(lines: List[str]) -> int:
+    stream = Stream(lines[0])
+    packet = read_packet(stream)
+    return packet.get_value()
