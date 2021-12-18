@@ -1,3 +1,10 @@
+import re
+from typing import Iterator, List, NamedTuple, Optional, Tuple, Union, cast
+
+# import matplotlib.pyplot as plt
+import numpy as np
+import numpy.typing as npt
+
 r"""
 Physics time!
 
@@ -46,13 +53,6 @@ If $t < |v_{0x}|$:
 Notes: $vy(y=0) = -v_0y - 1$, and we can extrapolate from there
 """
 
-
-import re
-from typing import Generator, List, NamedTuple, Optional, Tuple, Union
-
-import numpy as np
-import numpy.typing as npt
-
 IntType = np.int64
 IntArray = npt.NDArray[IntType]
 
@@ -60,18 +60,15 @@ IntArray = npt.NDArray[IntType]
 class Coords(NamedTuple):
     vx: IntArray
     vy: IntArray
-    x: IntArray = 0
-    y: IntArray = 0
+    x: IntArray = np.array(0)
+    y: IntArray = np.array(0)
 
-    def __getitem__(self, key: Union[int, slice]) -> "Coords":
+    def __getitem__(self, key: Union[int, slice]) -> "Coords":  # type: ignore
         return Coords(self.vx[key], self.vy[key], self.x[key], self.y[key])
 
-    def __iter__(self) -> Generator["Coords", None, None]:
+    def __iter__(self) -> Iterator["Coords"]:  # type: ignore
         for i in range(self.vx.shape[0]):
             yield Coords(self.vx[i], self.vy[i], self.x[i], self.y[i])
-
-    def __len__(self) -> int:
-        return self.vx.shape[0]
 
 
 def step(coords: Coords) -> Coords:
@@ -91,14 +88,18 @@ def solve_vy(init: Coords, t: IntArray) -> IntArray:
 
 
 def solve_y(init: Coords, t: IntArray) -> IntArray:
-    return init.y + init.vy * t - t * (t - 1) // 2
+    return cast(IntArray, init.y + init.vy * t - t * (t - 1) // 2)
 
 
 def solve_x(init: Coords, t: IntArray) -> IntArray:
-    return init.x + np.where(
-        t >= np.abs(init.vx),
-        init.vx * (np.abs(init.vx) + 1) // 2,  # x velocity is zero from drag
-        init.vx * t - np.copysign(t * (t - 1) // 2, init.vx).astype(IntType),
+    return cast(
+        IntArray,
+        init.x
+        + np.where(
+            t >= np.abs(init.vx),
+            init.vx * (np.abs(init.vx) + 1) // 2,  # x velocity is zero from drag
+            init.vx * t - np.copysign(t * (t - 1) // 2, init.vx).astype(IntType),
+        ),
     )
 
 
@@ -113,11 +114,11 @@ def solve(init: Coords, t: IntArray) -> Coords:
 def parse(lines: List[str]) -> Tuple[range, range]:
     m = re.match(r"target area: x=(-?\d+)\.\.(-?\d+), y=(-?\d+)\.\.(-?\d+)", lines[0])
     assert m is not None
-    return range(int(m[1]), int(m[2])), range(int(m[3]), int(m[4]))
+    return range(int(m[1]), int(m[2]) + 1), range(int(m[3]), int(m[4]) + 1)
 
 
 def draw(coords: Coords, target: Optional[Tuple[range, range]] = None) -> None:
-    start = coords[0]
+    start: Coords = coords[0]  # type: ignore
     x_min = coords.x.min()
     x_max = coords.x.max()
     y_min = coords.y.min()
@@ -137,7 +138,8 @@ def draw(coords: Coords, target: Optional[Tuple[range, range]] = None) -> None:
             for x in target[0]:
                 field[y_max - y, x - x_min] = "T"
 
-    for coord in coords:
+    coord: Coords
+    for coord in coords:  # type: ignore
         field[y_max - coord.y, coord.x - x_min] = "#"
 
     field[y_max - start.y, start.x - x_min] = "S"
@@ -145,28 +147,70 @@ def draw(coords: Coords, target: Optional[Tuple[range, range]] = None) -> None:
         "\n".join(
             l.lstrip(" ").lstrip("[").rstrip("]")
             for l in np.array2string(
-                field, separator="", formatter={"numpystr": str}, threshold=field.size
+                field,
+                separator="",
+                formatter={"numpystr": str},
+                threshold=field.size,
+                max_line_width=field.shape[1] + 4,
             ).splitlines(keepends=False)
         )
     )
 
 
 def part_1(lines: List[str]) -> int:
-    # FIXME: ignore x for now, as we can probably land that target pretty easily
+    # ignore x for now, as we can probably land that target pretty easily
     _, y_range = parse(lines)
-    # init = Coords(6, 3)
-    # print(f"Initial velocity: {init.vx},{init.vy}")
-    # path = solve(init, np.arange(10))
-    # draw(path, (x_range, y_range))
 
     # We always hit y=0 exactly, so the highest y velocity will have to put us
     # at the bottom edge of the target.
     # Optimal y velocity: vy = y_max at y=0
-    # vy(y=0) = -v_0y - 1 = y_max
-    # => v_0y = -y_max - 1
+    #   vy(y=0) = -v_0y - 1 = y_max
+    #               => v_0y = -y_max - 1
+    # pylint: disable-next=invalid-unary-operand-type  # IDK why pylint doesn't like this
     vy = -y_range.start - 1
-    t0 = 2 * vy + 1
-    path = solve(Coords(vx=0, vy=vy), np.arange(t0 + 3))
-    # print(path)
+    # reaches y=0 at t = 2*v_0y + 1
+    # reaches max height at t = v_0y
+    return solve_y(Coords(vx=0, vy=vy), vy)  # type: ignore
     # draw(path, (x_range, y_range))
-    return path.y.max()
+    # return int(path.y)
+
+
+def part_2(lines: List[str]) -> int:
+    x_range, y_range = parse(lines)
+
+    x_max = x_range.stop - 1
+    y_min = y_range.start
+    # stops at near edge (assuming x > 0)
+    #   x_min = v_0x * (v_0x + 1) / 2
+    #       0 = v_0x^2 / 2 + v_0x / 2 - x_min
+    # => v_0x = (sqrt(8*x_min + 1) - 1) / 2
+    vx_min = max(0, int((np.sqrt(8 * x_range.start + 1) - 1) / 2))
+    vx_max = x_max  # reaches the far edge on the first step
+
+    # pylint: disable-next=invalid-unary-operand-type
+    vy_max = -y_range.start - 1  # from part 1
+    vy_min = y_min  # reaches the far edge on the first step
+
+    # fully vectorized
+    # TODO: this search space can be cut down
+    vel_grid = np.mgrid[vx_min : vx_max + 1, vy_min : vy_max + 1]
+    coords = Coords(vx=vel_grid[0], vy=vel_grid[1])
+    hit = np.zeros_like(vel_grid[0], dtype=bool)
+    passed = np.zeros_like(vel_grid[0], dtype=bool)
+    while not np.all(passed):
+        hit |= (
+            (x_range.start <= coords.x)
+            & (coords.x < x_range.stop)
+            & (y_range.start <= coords.y)
+            & (coords.y < y_range.stop)
+        )
+        passed |= (coords.x >= x_max) | (coords.y <= y_min)
+        coords = step(coords)
+
+    # plt.scatter(vel_grid[0][hit], vel_grid[1][hit])
+    # plt.xlabel("initial x velocity")
+    # plt.ylabel("initial y velocity")
+    # plt.tight_layout()
+    # plt.show()
+
+    return np.count_nonzero(hit)
