@@ -1,4 +1,8 @@
 import ast
+import copy
+import functools
+import itertools
+import operator
 from dataclasses import dataclass
 from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
 
@@ -61,8 +65,8 @@ class Number:
         self.pair = pair
         self.reduce()
 
-    def add(self, other: Pair) -> "Number":
-        return Number(Pair(self.pair, other))
+    def __add__(self, other: "Number") -> "Number":
+        return Number(Pair(copy.deepcopy(self.pair), copy.deepcopy(other.pair)))
 
     def reduce(self) -> None:
         modified = True
@@ -96,7 +100,6 @@ class Number:
         prev_path: Optional[List[int]],
         next_path: Optional[List[int]],
     ) -> None:
-        # print(f"explode at {path}")
         l, r = self.pair[path]
         if prev_path is not None:
             self.pair[prev_path] += l
@@ -105,7 +108,6 @@ class Number:
         self.pair[path] = 0
 
     def split(self, path: List[int], val: int) -> None:
-        # print(f"split at {path}")
         l = val // 2
         r = val - l
         self.pair[path] = Pair(l, r)
@@ -114,8 +116,8 @@ class Number:
         return int(self.pair)
 
 
-def parse(lines: List[str]) -> List[Pair]:
-    pairs: List[Pair] = []
+def parse(lines: List[str]) -> List[Number]:
+    nums = []
 
     def helper(element: Any) -> Union[int, Pair]:
         if isinstance(element, int):
@@ -127,13 +129,16 @@ def parse(lines: List[str]) -> List[Pair]:
 
     for line in lines:
         lst = ast.literal_eval(line)
-        pairs.append(helper(lst))  # type: ignore
-    return pairs
+        nums.append(Number(helper(lst)))  # type: ignore
+    return nums
 
 
 def part_1(lines: List[str]) -> int:
-    pairs = parse(lines)
-    num = Number(pairs[0])
-    for pair in pairs[1:]:
-        num = num.add(pair)
-    return num.magnitude()
+    nums = parse(lines)
+    total = functools.reduce(operator.add, nums)
+    return total.magnitude()
+
+
+def part_2(lines: List[str]) -> int:
+    nums = parse(lines)
+    return max((n1 + n2).magnitude() for n1, n2 in itertools.permutations(nums, 2))
