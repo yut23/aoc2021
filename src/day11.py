@@ -1,8 +1,8 @@
-from typing import List, cast
+import itertools
+from typing import List
 
 import numpy as np
 import numpy.typing as npt
-from scipy import ndimage
 
 
 def parse(lines: List[str]) -> npt.NDArray[int]:
@@ -13,13 +13,6 @@ def display(energy: npt.NDArray[int]) -> None:
     print(np.array2string(energy, separator=""))
 
 
-def inc_filter(flashes: npt.NDArray[float]) -> int:
-    return cast(int, np.sum(flashes, dtype=int))
-
-
-kernel = ndimage.generate_binary_structure(2, 2)
-
-
 def calc_step(energy: npt.NDArray[int]) -> npt.NDArray[bool]:
     energy += 1  # type: ignore
     flashed: npt.NDArray[bool] = np.zeros_like(energy, dtype=bool)
@@ -27,14 +20,13 @@ def calc_step(energy: npt.NDArray[int]) -> npt.NDArray[bool]:
         new_flashes = (energy > 9) & ~flashed  # type: ignore
         if not np.any(new_flashes):
             break
-        to_increment = ndimage.generic_filter(
-            new_flashes.astype(np.uint8),
-            inc_filter,
-            size=3,
-            mode="constant",
-            cval=0,
-        )
-        energy += to_increment
+        slices = {
+            (None, -1): slice(1, None),
+            (None,): slice(None),
+            (1, None): slice(None, -1),
+        }
+        for x, y in itertools.product(slices, repeat=2):
+            energy[slice(*x), slice(*y)] += new_flashes[slices[x], slices[y]]
         flashed |= new_flashes
     energy[flashed] = 0
     return flashed
